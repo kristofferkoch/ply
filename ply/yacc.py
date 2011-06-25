@@ -2963,7 +2963,7 @@ class ParserReflect(object):
             if isinstance(item,(types.FunctionType,types.MethodType)):
                 line = func_code(item).co_firstlineno
                 file = func_code(item).co_filename
-                p_functions.append((line,file,name,item.__doc__))
+                p_functions.append((line,file,name,_get_grammar(item)))
 
         # Sort all of the actions by line number
         p_functions.sort()
@@ -2991,8 +2991,8 @@ class ParserReflect(object):
             elif func_code(func).co_argcount < reqargs:
                 self.log.error("%s:%d: Rule '%s' requires an argument",file,line,func.__name__)
                 self.error = 1
-            elif not func.__doc__:
-                self.log.warning("%s:%d: No documentation string specified in function '%s' (ignored)",file,line,func.__name__)
+            elif not _get_grammar(func):
+                self.log.warning("%s:%d: No grammar string specified in function '%s' (ignored)",file,line,func.__name__)
             else:
                 try:
                     parsed_g = parse_grammar(doc,file,line)
@@ -3018,7 +3018,7 @@ class ParserReflect(object):
             if ((isinstance(v,types.FunctionType) and func_code(v).co_argcount == 1) or
                 (isinstance(v,types.MethodType) and func_code(v).co_argcount == 2)):
                 try:
-                    doc = v.__doc__.split(" ")
+                    doc = _get_grammar(v).split(" ")
                     if doc[1] == ':':
                         self.log.warning("%s:%d: Possible grammar rule '%s' defined without p_ prefix",
                                          func_code(v).co_filename, func_code(v).co_firstlineno,n)
@@ -3274,3 +3274,15 @@ def yacc(method='LALR', debug=yaccdebug, module=None, tabmodule=tab_module, star
 
     parse = parser.parse
     return parser
+
+def _get_grammar(item):
+    if hasattr(item, 'grammar'):
+        return item.grammar
+    else:
+        return item.__doc__
+
+def GRAMMAR(g):
+    def set_doc(f):
+        f.grammar = g
+        return f
+    return set_doc
