@@ -1123,7 +1123,8 @@ class LRParser:
 import re
 
 # regex matching identifiers
-_is_identifier = re.compile(r'^[a-zA-Z0-9_-]+$')
+from .lex import _is_identifier
+#_is_identifier = re.compile(r'^[a-zA-Z0-9_-]+$')
 
 # -----------------------------------------------------------------------------
 # class Production:
@@ -1401,12 +1402,11 @@ class Grammar(object):
             if s[0] in "'\"":
                  try:
                      c = eval(s)
-                     if (len(c) > 1):
-                          raise GrammarError("%s:%d: Literal token %s in rule '%s' may only be a single character" % (file,line,s, prodname))
-                     if not c in self.Terminals:
-                          self.Terminals[c] = []
-                     syms[n] = c
-                     continue
+                     if len(c) <= 1:
+                         if not c in self.Terminals:
+                             self.Terminals[c] = []
+                         syms[n] = c
+                         continue
                  except SyntaxError:
                      pass
             if not _is_identifier.match(s) and s != '%prec':
