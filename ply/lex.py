@@ -54,6 +54,12 @@ else:
     def func_code(f):
         return f.__code__
 
+def _func_file_line(f):
+    if hasattr(f, 'lineno'):
+        return (f.filename, f.lineno)
+    c = func_code(f)
+    return (c.co_filename, c.co_firstlineno)
+
 # This regular expression is used to match valid token names
 _is_identifier = re.compile(r'^([a-zA-Z0-9_]+|\'([^\']|\\\')+\')$')
 
@@ -68,7 +74,14 @@ class LexError(Exception):
 # Token class.  This class is used to represent the tokens produced.
 class LexToken(object):
     def __str__(self):
-        return "LexToken(%s,%r,%d,%d)" % (self.type,self.value,self.lineno,self.lexpos)
+        keys = [k+":"+str(self.__dict__[k])
+                for k in self.__dict__
+                if not k.startswith("_")
+                   and self.__dict__[k]
+                   and k not in ("type", "value","lineno",
+                                 "lexpos", "lexer")]
+        other = ','.join(keys)
+        return "LexToken(%s,%r,%s)" % (self.type,self.value, other)
     def __repr__(self):
         return str(self)
 
@@ -357,9 +370,8 @@ class Lexer:
                 if not self.lexoptimize:
                     if not newtok.type in self.lextokens:
                         raise LexError("%s:%d: Rule '%s' returned an unknown token type '%s'" % (
-                            func_code(func).co_filename, func_code(func).co_firstlineno,
-                            func.__name__, newtok.type),lexdata[lexpos:])
-
+                                _func_file_line(func) + (
+                                    func.__name__, newtok.type),lexdata[lexpos:]))
                 return newtok
             else:
                 # No match, see if in literals
@@ -679,8 +691,7 @@ class LexerReflect(object):
                     for s in states:
                         self.errorf[s] = t
                 elif tokname == 'ignore':
-                    line = func_code(t).co_firstlineno
-                    file = func_code(t).co_filename
+                    file, line = _func_file_line(t)
                     self.log.error("%s:%d: Rule '%s' must be defined as a string",file,line,t.__name__)
                     self.error = 1
                 else:
@@ -706,10 +717,10 @@ class LexerReflect(object):
         # Sort the functions by line number
         for f in self.funcsym.values():
             if sys.version_info[0] < 3:
-                f.sort(lambda x,y: cmp(func_code(x[1]).co_firstlineno,func_code(y[1]).co_firstlineno))
+                f.sort(lambda x,y: cmp(_func_file_line(x[1])[1] ,_func_file_line(y[1])[1]))
             else:
                 # Python 3.0
-                f.sort(key=lambda x: func_code(x[1]).co_firstlineno)
+                f.sort(key=lambda x: _func_file_line(x[1])[1])
 
         # Sort the strings by regular expression length
         for s in self.strsym.values():
@@ -727,8 +738,7 @@ class LexerReflect(object):
             
 
             for fname, f in self.funcsym[state]:
-                line = func_code(f).co_firstlineno
-                file = func_code(f).co_filename
+                file, line = _func_file_line(f)
                 self.files[file] = 1
 
                 tokname = self.toknames[fname]
@@ -797,8 +807,7 @@ class LexerReflect(object):
             efunc = self.errorf.get(state,None)
             if efunc:
                 f = efunc
-                line = func_code(f).co_firstlineno
-                file = func_code(f).co_filename
+                file, line = _func_file_line(f)
                 self.files[file] = 1
 
                 if isinstance(f, types.MethodType):
@@ -931,8 +940,7 @@ def lex(module=None,object=None,debug=0,optimize=0,lextab="lextab",reflags=0,now
 
         # Add rules defined by functions first
         for fname, f in linfo.funcsym[state]:
-            line = func_code(f).co_firstlineno
-            file = func_code(f).co_filename
+            file, line = _func_file_line(f)
             regex_list.append("(?P<%s>%s)" % (fname,_get_regex(f)))
             if debug:
                 debuglog.info("lex: Adding rule %s -> '%s' (state '%s')",fname,_get_regex(f), state)
@@ -1056,6 +1064,8 @@ def TOKEN(r):
             f.regex = _get_regex(r)
         else:
             f.regex = r
+        f.lineno = f.__code__.co_firstlineno
+        f.filename = f.__code__.co_filename
         return f
     return set_doc
 
