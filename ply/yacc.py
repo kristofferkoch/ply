@@ -1399,16 +1399,6 @@ class Grammar(object):
 
         # Look for literal tokens 
         for n,s in enumerate(syms):
-            if s[0] in "'\"":
-                 try:
-                     c = eval(s)
-                     if len(c) <= 1:
-                         if not c in self.Terminals:
-                             self.Terminals[c] = []
-                         syms[n] = c
-                         continue
-                 except SyntaxError:
-                     pass
             if not _is_identifier.match(s) and s != '%prec':
                 raise GrammarError("%s:%d: Illegal name '%s' in rule '%s'" % (file,line,s, prodname))
         
