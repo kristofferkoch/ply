@@ -2003,6 +2003,7 @@ class LRGeneratedTable(LRTable):
             if gs:
                 s['$end'] = g = self.lr0_closure(gs)
             else:
+                g = None
                 s['$end'] = gs
         self.lr_goto_cache[(id(I),x)] = g
         return g
